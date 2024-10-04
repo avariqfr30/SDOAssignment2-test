@@ -1,0 +1,15 @@
+app_servers:
+  hosts:
+    app1:
+      ansible_host: "3.94.120.244" # Fill in your "app" instance's public IP address here
+
+db_servers:
+  hosts:
+    db1:
+      ansible_host: "54.198.224.117" # Fill in your "db" instance's public IP address here
+
+# Look up the Ansible documentation to work out what this block does
+all_servers:
+  children:
+    app_servers:
+    db_servers:

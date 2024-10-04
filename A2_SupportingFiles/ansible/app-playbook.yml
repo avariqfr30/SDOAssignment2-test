@@ -1,0 +1,98 @@
+---
+- name: Configure app server
+  hosts: app_servers
+  remote_user: ubuntu
+  become: yes # sudo
+
+  tasks:
+  #- name: Install nginx
+  #  ansible.builtin.apt:
+  #    name: nginx
+  #    state: present
+
+  #- name: Upload content to web site
+  #  copy:
+  #    content: yah hello from ansible
+  #    dest: /var/www/html/index.html
+
+  # Node/NPM
+  - name: Install the gpg key for nodejs LTS
+    apt_key:
+      url: "https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
+      state: present
+  - name: Install the nodejs LTS repos
+    apt_repository:
+      repo: "deb https://deb.nodesource.com/node_18.x {{ ansible_distribution_release }} main"
+      state: present
+      update_cache: yes
+  - name: Install NodeJS
+    tags: nodesjs, install
+    apt:
+      name: nodejs
+      state: latest
+
+  - name: Install required system packages for Docker
+    apt:
+      pkg:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - python3-pip
+        - virtualenv
+        - python3-setuptools
+        - python3-docker
+      state: latest
+      update_cache: true
+
+  - name: Add Docker GPG apt Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker Repository
+    apt_repository:
+      repo: deb https://download.docker.com/linux/ubuntu jammy stable
+      state: present
+
+  - name: Update apt and install docker-ce
+    apt:
+      name: docker-ce
+      state: latest
+      update_cache: true
+  
+  - name: Add ubuntu user to docker group
+    user:
+      name: ubuntu
+      groups: docker
+      append: yes
+  
+  - name: create build directory
+    ansible.builtin.file:
+        path: /opt/fooapp-build/
+        state: directory
+        group: ubuntu
+        mode: '774'
+  - name : Copy app files
+    ansible.posix.synchronize:
+        src: ../app/
+        dest: /opt/fooapp-build/app/
+        rsync_opts:
+        - "--no-motd"
+        - "--exclude=node_modules"
+ # - name: Run Foo App
+ #   shell: 'cd opt/fooapp-build/app; npm install; PORT=3000 nohup node opt/fooapp-build/app/index.js >/dev/null 2>/dev/null &'
+ # - name: Set nginx config for foo app
+ #   copy:
+ #     remote_src: true
+ #     src: /opt/fooapp-build/app/nginx-config.conf
+ #     dest: /etc/nginx/conf.d/foo.conf
+ # - name: Remove "default" nginx config
+ #   ansible.builtin.file:
+ #     path: /etc/nginx/sites-enabled/default
+ #     state: absent
+ # - name: Reload nginx config
+ #   shell: 'systemctl reload nginx'
+  - name: Create and run docker container
+    shell: cd /opt/fooapp-build/app/; docker run --name foo_app --add-host host.docker.internal:host-gateway -e PORT=3001 -e DB_HOSTNAME=host.docker.internal -e DB_PORT=5432 -e DB_USERNAME=pete -e DB_PASSWORD=devops -p 0.0.0.0:80:3001 -d mattcul/assignment2app:1.0.0
+
